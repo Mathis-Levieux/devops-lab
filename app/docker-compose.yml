@@ -17,7 +17,8 @@ services:
 
   app:
     build:
-      context: ./app
+      context: .
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgres://chaos:chaos@postgres:5432/chaos
       PORT: 3000
