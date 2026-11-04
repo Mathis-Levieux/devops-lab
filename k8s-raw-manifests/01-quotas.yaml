@@ -1,0 +1,52 @@
+# ResourceQuota met la limite pour les ressources entières du namespace, tandis que LimitRange met des limites et valeurs par défaut pour chaque pod/containeur individuel.
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: chaos-quota
+  namespace: chaos-lab         # Si omis ici, applique avec 'kubectl apply -f quotas/dev.yaml -n dev'
+spec:
+  hard:
+    # Plafond global : max 10 pods simultanés dans ce namespace
+    pods: "10"
+
+    # Somme cumulée des 'requests' de tous les conteneurs du namespace
+    # 500m = 500 millicores = 0.5 CPU physique/virtuel
+    requests.cpu: "2"
+
+    # Somme cumulée de la mémoire réservée
+    requests.memory: 2Gi
+
+    # Somme cumulée du stockage réservé par les PVC
+    requests.storage: 10Gi # max n Gi de stockage réservé par les PVC dans ce namespace
+    persistentvolumeclaims: "10" # max 5 PVC dans ce namespace
+
+    # --- Pense-bête / Règle d'or ---
+    # Dès qu'un ResourceQuota cible cpu/memory, TOUT pod déployé dans ce namespace
+    # DOIT obligatoirement déclarer ses propres resources.requests (sinon rejet à la création).
+    #
+    # Extensions courantes possibles dans 'hard' :
+    limits.cpu: "4"        # Plafond max pour la somme des limits
+    limits.memory: 4Gi
+    # services: "5"          # Limite sur d'autres types d'objets K8s
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: limits
+spec:
+  limits:
+    - type: PersistentVolumeClaim
+      max:
+        storage: 1Gi
+      min:
+        storage: 25Mi
+      # This LimitRange sets the maximum and minimum storage limits for PersistentVolumeClaims in the namespace where this LimitRange is applied.
+    - type: Container
+      defaultRequest: { cpu: 25m, memory: 32Mi }
+      max:
+        cpu: "1"
+        memory: 512Mi
+      min:
+        cpu: 25m
+        memory: 32Mi
