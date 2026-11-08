@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: statefulset-postgres-chaos
+  namespace: chaos-lab
+spec:
+  serviceName: postgres-service-chaos
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-chaos
+  template:
+    metadata:
+      labels:
+        app: postgres-chaos
+    spec:
+      containers:
+        - name: postgres-chaos
+          image: postgres:17-alpine
+          ports:
+            - containerPort: 5432
+              name: postgres
+          volumeMounts:
+            - name: postgres-chaos-persistent-storage
+              mountPath: /var/lib/postgresql/data
+              subPath: chaos
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+          livenessProbe:
+            exec:
+              command:
+                - "sh"
+                - "-c"
+                - "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"
+            periodSeconds: 2
+            initialDelaySeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - "sh"
+                - "-c"
+                - "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"
+            periodSeconds: 2
+            initialDelaySeconds: 5
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 25m
+            limits:
+              memory: 100Mi
+              cpu: 100m
+
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-chaos-persistent-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 200Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service-chaos
+  namespace: chaos-lab
+  labels:
+    app: postgres-chaos
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+  clusterIP: None
+  selector:
+    app: postgres-chaos
